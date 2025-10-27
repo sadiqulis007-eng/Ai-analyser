@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Image Analyzer</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f7f7fb; color: #111; }
+  .card { background: #fff; padding: 20px; border-radius: 12px; max-width: 700px; margin: auto; box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
+  input, button, textarea { font: inherit; padding: 8px; margin: 4px 0; border-radius: 6px; border: 1px solid #ccc; width: 100%; }
+  img.preview { max-width: 320px; max-height: 240px; object-fit: contain; border-radius: 8px; border: 1px solid #eee; margin-top: 8px; }
+  .row { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+  .results { white-space: pre-wrap; background: #fafafa; padding: 10px; border-radius: 8px; min-height: 100px; margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>AI Image Analyzer</h2>
+
+  <div class="row">
+    <input type="file" id="fileInput" accept="image/*">
+    <img id="preview" class="preview" alt="Preview">
+    <textarea id="question" placeholder="Ask a question about the image (optional)" rows="2"></textarea>
+    <button id="analyzeBtn">Analyze Image</button>
+  </div>
+
+  <div class="results" id="analysis">Analysis will appear here...</div>
+</div>
+
+<script>
+const OPENROUTER_API_KEY = "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"; // Replace immediately if exposed
+
+let dataURL = null;
+const fileInput = document.getElementById('fileInput');
+const preview = document.getElementById('preview');
+const analyzeBtn = document.getElementById('analyzeBtn');
+const analysisDiv = document.getElementById('analysis');
+const questionInput = document.getElementById('question');
+
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    dataURL = reader.result;
+    preview.src = dataURL;
+  };
+  reader.readAsDataURL(file);
+});
+
+analyzeBtn.addEventListener('click', async () => {
+  if (!dataURL) { analysisDiv.textContent = 'Upload an image first.'; return; }
+
+  const userQuestion = questionInput.value.trim();
+  analysisDiv.textContent = 'Analyzing...';
+
+  try {
+    const body = {
+      model: "openai/gpt-5-image",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: userQuestion || "Describe this image in detail, including objects, scene, and context." },
+            { type: "image_url", image_url: { url: dataURL } }
+          ]
+        }
+      ]
+    };
+
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer " + OPENROUTER_API_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+    const msg = data?.choices?.[0]?.message?.content;
+    analysisDiv.textContent = msg ? JSON.stringify(msg, null, 2) : JSON.stringify(data, null, 2);
+
+  } catch(err) {
+    analysisDiv.textContent = 'Error: ' + err.message;
+  }
+});
+</script>
+</body>
+</html>
